@@ -57,25 +57,6 @@
 <button onclick="sendMessage()">Send</button>
 
 <script>
-
-// --- Anonymous User ID Generation ---
-function generateAnonymousId() {
-    const random = Math.random().toString(36).substring(2, 10);
-    return "user_" + random;
-}
-
-// Load or create anonymous user ID
-let anonymousUserId = localStorage.getItem("metamath-anon-id");
-
-if (!anonymousUserId) {
-    anonymousUserId = generateAnonymousId();
-    localStorage.setItem("metamath-anon-id", anonymousUserId);
-    console.log("Generated new anonymous ID:", anonymousUserId);
-} else {
-    console.log("Using existing anonymous ID:", anonymousUserId);
-}
-
-
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
     const div = document.createElement("div");
@@ -104,7 +85,7 @@ function sendMessage() {
         body: JSON.stringify({
             message: msg,
             lesson_id: "moodle-embed",
-            user_id: anonymousUserId 
+            user_id: "anonymous"
         })
     })
     .then(response => response.json())
