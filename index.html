@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MetaMath Tutor</title>
+
+    <!-- MathJax for rendering LaTeX -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+        }
+        #chatbox {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 350px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+        .bubble {
+            padding: 8px;
+            margin: 6px 0;
+            border-radius: 6px;
+            max-width: 90%;
+            line-height: 1.4;
+        }
+        .user {
+            background: #e0f2ff;
+            align-self: flex-end;
+        }
+        .bot {
+            background: #f3e7ff;
+        }
+        #inputbox {
+            width: 100%;
+            height: 60px;
+        }
+        button {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>MetaMath Tutor</h2>
+
+<div id="chatbox"></div>
+
+<textarea id="inputbox" placeholder="Type your reflection here..."></textarea><br>
+<button onclick="sendMessage()">Send</button>
+
+<script>
+function addBubble(text, className) {
+    const chat = document.getElementById("chatbox");
+    const div = document.createElement("div");
+    div.className = "bubble " + className;
+    div.innerHTML = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+
+    // Re-render math if needed
+    if (window.MathJax) {
+        MathJax.typesetPromise();
+    }
+}
+
+function sendMessage() {
+    const input = document.getElementById("inputbox");
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    addBubble(msg, "user");
+    input.value = "";
+
+    fetch("https://metamath-backend.onrender.com/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            message: msg,
+            lesson_id: "moodle-embed",
+            user_id: "anonymous"
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        addBubble(data.reply, "bot");
+    })
+    .catch(err => {
+        addBubble("Error: Could not reach the server.", "bot");
+    });
+}
+</script>
+
+</body>
+</html>
+
