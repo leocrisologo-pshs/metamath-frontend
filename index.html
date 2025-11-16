@@ -76,6 +76,15 @@ if (!anonymousUserId) {
     console.log("Using existing anonymous ID:", anonymousUserId);
 }
 
+// --- Session ID (new each visit) ---
+function generateSessionId() {
+    return "sess_" + Math.random().toString(36).substring(2, 10);
+}
+
+let sessionId = generateSessionId();
+console.log("Session ID:", sessionId);
+
+
 // -------------------------------------------------------
 // --- Get Lesson ID from URL ---
 // -------------------------------------------------------
@@ -118,6 +127,7 @@ function sendMessage() {
             message: msg,
             lesson_id: lessonId,
             user_id: anonymousUserId
+	    session_id: sessionID
         })
     })
     .then(response => response.json())
