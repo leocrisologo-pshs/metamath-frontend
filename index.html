@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -79,7 +79,7 @@ function sendMessage() {
     addBubble(msg, "user");
     input.value = "";
 
-    fetch("https://metamath-backend.onrender.com/chat", {
+    fetch("https://metamath-backend-1.onrender.com/chat", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
