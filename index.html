@@ -102,6 +102,54 @@
             from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Static Quick Prompts */
+        #quick-prompts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .qp {
+            background: #eef3ff;
+            color: #334;
+            border: 1px solid #ccd5ff;
+            padding: 6px 10px;
+            border-radius: 14px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .qp:hover {
+            background: #dfe7ff;
+            border-color: #b9c7ff;
+        }
+
+        /* Adaptive Prompts */
+        #adaptive-prompts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ap {
+            background: #fff7d1;
+            color: #554400;
+            border: 1px solid #ffe88b;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .ap:hover {
+            background: #ffefad;
+        }
     </style>
 </head>
 
@@ -111,14 +159,18 @@
 
 <div id="chatbox"></div>
 
+<!-- STATIC QUICK PROMPTS -->
 <div id="quick-prompts">
     <button class="qp" onclick="insertPrompt('I realized that…')">I realized that…</button>
     <button class="qp" onclick="insertPrompt('I found it difficult when…')">I found it difficult when…</button>
-    <button class="qp" onclick="insertPrompt('I noticed that my understanding changed when…')">My understanding changed when…</button>
+    <button class="qp" onclick="insertPrompt('My understanding changed when…')">My understanding changed when…</button>
     <button class="qp" onclick="insertPrompt('A question I still have is…')">A question I still have is…</button>
     <button class="qp" onclick="insertPrompt('The strategy that helped me most was…')">The strategy that helped me most was…</button>
 </div>
 
+<!-- ADAPTIVE PROMPTS -->
+<h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 500;">Suggested prompts</h3>
+<div id="adaptive-prompts"></div>
 
 <div id="input-container">
     <textarea id="inputbox" placeholder="Type your reflection..." ></textarea>
@@ -188,6 +240,33 @@ function hideTyping() {
 }
 
 // -------------------------------------------------------
+// --- Insert Static or Adaptive Prompt ---
+// -------------------------------------------------------
+function insertPrompt(text) {
+    const input = document.getElementById("inputbox");
+    input.value = text + " ";
+    input.focus();
+}
+
+// -------------------------------------------------------
+// --- Render Adaptive Prompts ---
+// -------------------------------------------------------
+function renderAdaptivePrompts(list) {
+    const box = document.getElementById("adaptive-prompts");
+    box.innerHTML = "";
+
+    if (!list || list.length === 0) return;
+
+    list.forEach(item => {
+        const btn = document.createElement("button");
+        btn.className = "ap";
+        btn.textContent = item;
+        btn.onclick = () => insertPrompt(item);
+        box.appendChild(btn);
+    });
+}
+
+// -------------------------------------------------------
 // --- Send Message ---
 // -------------------------------------------------------
 function sendMessage() {
@@ -214,6 +293,11 @@ function sendMessage() {
     .then(data => {
         hideTyping();
         addBubble(data.reply, "bot");
+
+        // NEW: Show Adaptive Suggestions
+        if (data.suggestions) {
+            renderAdaptivePrompts(data.suggestions);
+        }
     })
     .catch(err => {
         hideTyping();
