@@ -248,9 +248,16 @@ const lessonId = params.get("lesson") || "unknown_lesson";
 // -------------------------------------------------------
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
+
+    // 1. Convert square-bracket math blocks → display math
+    text = text.replace(/\[\s*([\s\S]+?)\s*\]/g, function(_, expr) {
+        return "$$" + expr.trim() + "$$";
+    });
+
     const div = document.createElement("div");
     div.className = "bubble " + className;
 
+    // 2. Markdown + Math protection
     div.innerHTML = markdownWithMath(text);
 
     chat.appendChild(div);
@@ -258,6 +265,7 @@ function addBubble(text, className) {
 
     if (window.MathJax) MathJax.typesetPromise();
 }
+
 
 // -------------------------------------------------------
 // Typing Indicator
