@@ -12,49 +12,109 @@
 
     <style>
         body {
-            font-family: Arial, sans-serif;
-            padding: 10px;
+            font-family: "Inter", Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            margin: 0;
         }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
         #chatbox {
-            border: 1px solid #ccc;
-            padding: 10px;
-            height: 350px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            height: 430px;
             overflow-y: auto;
-            margin-bottom: 10px;
-            background: #fafafa;
+            margin-bottom: 15px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
+
         .bubble {
-            padding: 8px;
-            margin: 6px 0;
-            border-radius: 6px;
-            max-width: 90%;
-            line-height: 1.4;
+            padding: 10px 14px;
+            margin: 10px 0;
+            border-radius: 14px;
+            max-width: 80%;
+            line-height: 1.5;
+            animation: fadeIn 0.25s ease-in-out;
         }
+
         .user {
-            background: #e0f2ff;
-            text-align: right;
+            background: #d9ecff;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+            text-align: left;
         }
+
         .bot {
-            background: #f3e7ff;
+            background: #f3e8ff;
+            border-bottom-left-radius: 4px;
         }
+
+        /* Typing indicator */
+        .typing {
+            display: inline-block;
+            margin: 10px 0;
+            padding: 8px 14px;
+            background: #eee;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #777;
+        }
+
+        #input-container {
+            display: flex;
+            gap: 10px;
+        }
+
         #inputbox {
-            width: 100%;
-            height: 60px;
+            flex: 1;
+            min-height: 50px;
+            max-height: 150px;
+            padding: 10px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            resize: vertical;
         }
+
         button {
-            margin-top: 5px;
+            background: #0066ff;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #0050d8;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 
 <body>
 
-<h2>Interact with me for guidance and support!</h2>
+<h2>MetaMath Tutor</h2>
 
 <div id="chatbox"></div>
 
-<textarea id="inputbox" placeholder="Type your reflection here..."></textarea><br>
-<button onclick="sendMessage()">Send</button>
+<div id="input-container">
+    <textarea id="inputbox" placeholder="Type your reflection..." ></textarea>
+    <button onclick="sendMessage()">Send</button>
+</div>
 
 <script>
 // -------------------------------------------------------
@@ -65,52 +125,61 @@ function generateAnonymousId() {
     return "user_" + random;
 }
 
-// Load or create anonymous user ID
 let anonymousUserId = localStorage.getItem("metamath-anon-id");
-
 if (!anonymousUserId) {
     anonymousUserId = generateAnonymousId();
     localStorage.setItem("metamath-anon-id", anonymousUserId);
-    console.log("Generated new anonymous ID:", anonymousUserId);
-} else {
-    console.log("Using existing anonymous ID:", anonymousUserId);
 }
+console.log("Anonymous ID:", anonymousUserId);
 
-// --- Session ID (new each visit) ---
+// --- New Session ID each visit ---
 function generateSessionId() {
     return "sess_" + Math.random().toString(36).substring(2, 10);
 }
-
 let sessionId = generateSessionId();
 console.log("Session ID:", sessionId);
 
-
-// -------------------------------------------------------
 // --- Get Lesson ID from URL ---
-// -------------------------------------------------------
 const params = new URLSearchParams(window.location.search);
 const lessonId = params.get("lesson") || "unknown_lesson";
-console.log("Lesson ID:", lessonId);
+console.log("Lesson:", lessonId);
 
 // -------------------------------------------------------
-// --- Add Chat Bubbles ---
+// --- Add Chat Bubble ---
 // -------------------------------------------------------
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
+
     const div = document.createElement("div");
     div.className = "bubble " + className;
     div.innerHTML = text;
+
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
 
-    // Re-render math if needed
-    if (window.MathJax) {
-        MathJax.typesetPromise();
-    }
+    if (window.MathJax) MathJax.typesetPromise();
 }
 
 // -------------------------------------------------------
-// --- Send Message to Backend ---
+// --- Typing Indicator ---
+// -------------------------------------------------------
+function showTyping() {
+    const chat = document.getElementById("chatbox");
+    const div = document.createElement("div");
+    div.id = "typing";
+    div.className = "typing";
+    div.textContent = "Metamath Tutor is typing...";
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function hideTyping() {
+    const el = document.getElementById("typing");
+    if (el) el.remove();
+}
+
+// -------------------------------------------------------
+// --- Send Message ---
 // -------------------------------------------------------
 function sendMessage() {
     const input = document.getElementById("inputbox");
@@ -120,6 +189,8 @@ function sendMessage() {
     addBubble(msg, "user");
     input.value = "";
 
+    showTyping();
+
     fetch("https://metamath-backend-1.onrender.com/chat", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -127,15 +198,17 @@ function sendMessage() {
             message: msg,
             lesson_id: lessonId,
             user_id: anonymousUserId,
-	    session_id: sessionId
+            session_id: sessionId
         })
     })
     .then(response => response.json())
     .then(data => {
+        hideTyping();
         addBubble(data.reply, "bot");
     })
     .catch(err => {
-        addBubble("Error: Could not reach the server.", "bot");
+        hideTyping();
+        addBubble("⚠️ Error: Could not reach the server.", "bot");
     });
 }
 </script>
