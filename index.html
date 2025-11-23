@@ -112,11 +112,6 @@
             background: #0050d8;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         #quick-prompts, #adaptive-prompts {
             display: flex;
             flex-wrap: wrap;
@@ -137,6 +132,7 @@
             color: #334;
             border: 1px solid #ccd5ff;
         }
+
         .qp:hover { background: #dfe7ff; }
 
         .ap {
@@ -144,6 +140,7 @@
             color: #554400;
             border: 1px solid #ffe88b;
         }
+
         .ap:hover { background: #ffefad; }
     </style>
 </head>
@@ -180,44 +177,54 @@ marked.setOptions({
 });
 
 // -------------------------------------------------------
+// Helper: Detect math-like parentheses for conversion
+// -------------------------------------------------------
+function isMathParen(expr) {
+    return /[A-Za-z0-9π±=+\-*\/^]|\\[a-z]+/.test(expr);
+}
+
+// -------------------------------------------------------
 // Markdown + MathJax safe pipeline
 // -------------------------------------------------------
-
 function markdownWithMath(text) {
     const mathBlocks = [];
 
-    // 1. Extract MULTILINE display math $$...$$ (non-greedy, dot-all)
+    // 0. Convert pseudo-math parentheses → inline LaTeX
+    text = text.replace(/\(\s*([^\(\)]+?)\s*\)/g, (match, inner) => {
+        return isMathParen(inner) ? `$${inner}$` : match;
+    });
+
+    // 1. Extract multi-line display math
     text = text.replace(/\$\$([\s\S]+?)\$\$/g, (match, inner) => {
         mathBlocks.push({ type: "block", content: inner });
         return `@@MATHBLOCK${mathBlocks.length - 1}@@`;
     });
 
-    // 2. Extract inline math $...$
+    // 2. Extract inline math
     text = text.replace(/\$([^\$]+?)\$/g, (match, inner) => {
         mathBlocks.push({ type: "inline", content: inner });
         return `@@MATHINLINE${mathBlocks.length - 1}@@`;
     });
 
-    // 3. Apply Markdown safely
+    // 3. Convert Markdown
     let html = marked.parse(text);
 
-    // 4. Restore math blocks exactly as-is
-    html = html.replace(/@@MATH(BLOCK|INLINE)(\d+)@@/g, (_, kind, index) => {
-        const block = mathBlocks[index].content;
-
-        if (kind === "BLOCK") {
-            return `$$${block}$$`;
-        } else {
-            return `$${block}$`;
+    // 4. Restore math blocks (fix escapes)
+    html = html.replace(/@@MATH(BLOCK|INLINE)(\d+)@@/g,
+        (_, kind, idx) => {
+            let block = mathBlocks[idx].content;
+            block = block.replace(/\\\\/g, "\\");
+            return kind === "BLOCK"
+                ? `$$${block}$$`
+                : `$${block}$`;
         }
-    });
+    );
 
     return html;
 }
 
-
 // -------------------------------------------------------
-// Identifiers
+// User/session IDs
 // -------------------------------------------------------
 function generateAnonymousId() {
     return "user_" + Math.random().toString(36).substring(2, 10);
@@ -230,20 +237,19 @@ let sessionId = "sess_" + Math.random().toString(36).substring(2, 10);
 const lessonId = new URLSearchParams(window.location.search).get("lesson") || "unknown_lesson";
 
 // -------------------------------------------------------
-// Chat rendering
+// Chat bubble rendering
 // -------------------------------------------------------
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
 
-    // Square-bracket math → $$...$$
-    text = text.replace(/\[\s*([\s\S]+?)\s*\]/g, (_, expr) => {
-        return "$$" + expr.trim() + "$$";
-    });
+    // Fix bracket-math → display math
+    text = text.replace(/\[\s*([\s\S]+?)\s*\]/g, (_, expr) =>
+        `$$${expr.trim()}$$`
+    );
 
     const div = document.createElement("div");
     div.className = "bubble " + className;
 
-    // Markdown + math
     div.innerHTML = markdownWithMath(text);
 
     chat.appendChild(div);
@@ -309,7 +315,7 @@ function sendMessage() {
             session_id: sessionId
         })
     })
-    .then(r => r.json())
+    .then(response => response.json())
     .then(data => {
         hideTyping();
         addBubble(data.reply, "bot");
