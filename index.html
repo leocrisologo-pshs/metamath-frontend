@@ -12,7 +12,7 @@
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
     </script>
 
-    <!-- Markdown Renderer (Marked.js) -->
+    <!-- Markdown Renderer -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
@@ -107,7 +107,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Static Quick Prompts */
+        /* STATIC QUICK PROMPTS */
         #quick-prompts {
             display: flex;
             flex-wrap: wrap;
@@ -131,7 +131,7 @@
             border-color: #b9c7ff;
         }
 
-        /* Adaptive Prompts */
+        /* ADAPTIVE PROMPTS */
         #adaptive-prompts {
             display: flex;
             flex-wrap: wrap;
@@ -191,12 +191,38 @@ marked.setOptions({
 });
 
 // -------------------------------------------------------
+// Protect Math — Markdown-Compatible Wrapper
+// -------------------------------------------------------
+function markdownWithMath(text) {
+    const mathBlocks = [];
+
+    // 1. Display math $$...$$
+    text = text.replace(/\$\$(.+?)\$\$/gs, (match) => {
+        mathBlocks.push(match);
+        return `@@MATH${mathBlocks.length - 1}@@`;
+    });
+
+    // 2. Inline math $...$
+    text = text.replace(/\$(.+?)\$/g, (match) => {
+        mathBlocks.push(match);
+        return `@@MATH${mathBlocks.length - 1}@@`;
+    });
+
+    // 3. Markdown parse
+    let html = marked.parse(text);
+
+    // 4. Restore math blocks
+    html = html.replace(/@@MATH(\d+)@@/g, (m, idx) => mathBlocks[idx]);
+
+    return html;
+}
+
+// -------------------------------------------------------
 // Anonymous User ID
 // -------------------------------------------------------
 function generateAnonymousId() {
     return "user_" + Math.random().toString(36).substring(2, 10);
 }
-
 let anonymousUserId = localStorage.getItem("metamath-anon-id");
 if (!anonymousUserId) {
     anonymousUserId = generateAnonymousId();
@@ -225,8 +251,7 @@ function addBubble(text, className) {
     const div = document.createElement("div");
     div.className = "bubble " + className;
 
-    // Markdown → HTML
-    div.innerHTML = marked.parse(text);
+    div.innerHTML = markdownWithMath(text);
 
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
@@ -253,7 +278,7 @@ function hideTyping() {
 }
 
 // -------------------------------------------------------
-// Prompt Inserter (static/adaptive)
+// Prompt Inserter
 // -------------------------------------------------------
 function insertPrompt(text) {
     const input = document.getElementById("inputbox");
@@ -307,7 +332,7 @@ function sendMessage() {
         hideTyping();
         addBubble(data.reply, "bot");
 
-        // NEW: adaptive suggestions
+        // Render adaptive prompts
         renderAdaptivePrompts(data.suggestions);
     })
     .catch(() => {
