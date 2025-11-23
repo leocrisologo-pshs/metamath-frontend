@@ -111,15 +111,6 @@
 
 <div id="chatbox"></div>
 
-<div id="quick-prompts">
-    <button class="qp" onclick="insertPrompt('I realized that…')">I realized that…</button>
-    <button class="qp" onclick="insertPrompt('I found it difficult when…')">I found it difficult when…</button>
-    <button class="qp" onclick="insertPrompt('I noticed that my understanding changed when…')">My understanding changed when…</button>
-    <button class="qp" onclick="insertPrompt('A question I still have is…')">A question I still have is…</button>
-    <button class="qp" onclick="insertPrompt('The strategy that helped me most was…')">The strategy that helped me most was…</button>
-</div>
-
-
 <div id="input-container">
     <textarea id="inputbox" placeholder="Type your reflection..." ></textarea>
     <button onclick="sendMessage()">Send</button>
