@@ -18,8 +18,8 @@
     };
     </script>
 
-    <!-- MathJax for LaTeX rendering -->
-    <script id="MathJax-script" async
+    <!-- MathJax Engine -->
+    <script id="MathJax-script" async 
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
     </script>
 
@@ -71,7 +71,6 @@
             border-bottom-left-radius: 4px;
         }
 
-        /* Typing indicator */
         .typing {
             display: inline-block;
             margin: 10px 0;
@@ -118,18 +117,14 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* STATIC QUICK PROMPTS */
-        #quick-prompts {
+        #quick-prompts, #adaptive-prompts {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             margin-bottom: 12px;
         }
 
-        .qp {
-            background: #eef3ff;
-            color: #334;
-            border: 1px solid #ccd5ff;
+        .qp, .ap {
             padding: 6px 10px;
             border-radius: 14px;
             font-size: 14px;
@@ -137,34 +132,19 @@
             transition: 0.15s;
         }
 
-        .qp:hover {
-            background: #dfe7ff;
-            border-color: #b9c7ff;
+        .qp {
+            background: #eef3ff;
+            color: #334;
+            border: 1px solid #ccd5ff;
         }
-
-        /* ADAPTIVE PROMPTS */
-        #adaptive-prompts {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-            margin-bottom: 15px;
-        }
+        .qp:hover { background: #dfe7ff; }
 
         .ap {
             background: #fff7d1;
             color: #554400;
             border: 1px solid #ffe88b;
-            padding: 6px 10px;
-            border-radius: 12px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: 0.15s;
         }
-
-        .ap:hover {
-            background: #ffefad;
-        }
+        .ap:hover { background: #ffefad; }
     </style>
 </head>
 
@@ -174,7 +154,6 @@
 
 <div id="chatbox"></div>
 
-<!-- STATIC QUICK PROMPTS -->
 <div id="quick-prompts">
     <button class="qp" onclick="insertPrompt('I realized that…')">I realized that…</button>
     <button class="qp" onclick="insertPrompt('I found it difficult when…')">I found it difficult when…</button>
@@ -183,18 +162,17 @@
     <button class="qp" onclick="insertPrompt('The strategy that helped me most was…')">The strategy that helped me most was…</button>
 </div>
 
-<!-- ADAPTIVE SUGGESTED PROMPTS -->
 <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 500;">Suggested prompts</h3>
 <div id="adaptive-prompts"></div>
 
 <div id="input-container">
-    <textarea id="inputbox" placeholder="Type your reflection..." ></textarea>
+    <textarea id="inputbox" placeholder="Type your reflection..."></textarea>
     <button onclick="sendMessage()">Send</button>
 </div>
 
 <script>
 // -------------------------------------------------------
-// Markdown Configuration
+// Markdown settings
 // -------------------------------------------------------
 marked.setOptions({
     gfm: true,
@@ -202,93 +180,82 @@ marked.setOptions({
 });
 
 // -------------------------------------------------------
-// Protect Math — Markdown-Compatible Wrapper
+// Markdown + MathJax safe pipeline
 // -------------------------------------------------------
 function markdownWithMath(text) {
     const mathBlocks = [];
 
-    // 1. Display math $$...$$
-    text = text.replace(/\$\$(.+?)\$\$/gs, (match) => {
-        mathBlocks.push(match);
+    // 1. Extract display math $$...$$
+    text = text.replace(/\$\$(.+?)\$\$/gs, (m) => {
+        mathBlocks.push(m);
         return `@@MATH${mathBlocks.length - 1}@@`;
     });
 
-    // 2. Inline math $...$
-    text = text.replace(/\$(.+?)\$/g, (match) => {
-        mathBlocks.push(match);
+    // 2. Extract inline math $...$
+    text = text.replace(/\$(.+?)\$/g, (m) => {
+        mathBlocks.push(m);
         return `@@MATH${mathBlocks.length - 1}@@`;
     });
 
-    // 3. Markdown parse
+    // 3. Convert Markdown
     let html = marked.parse(text);
 
-    // 4. Restore math blocks
-    html = html.replace(/@@MATH(\d+)@@/g, (m, idx) => mathBlocks[idx]);
+    // 4. Restore math blocks + unescape TeX
+    html = html.replace(/@@MATH(\d+)@@/g, (_, i) => {
+        let block = mathBlocks[i];
+
+        // Fix double-escaped backslashes
+        block = block.replace(/\\\\/g, "\\").replace(/\\\$/g, "$");
+
+        return block;
+    });
 
     return html;
 }
 
 // -------------------------------------------------------
-// Anonymous User ID
+// Identifiers
 // -------------------------------------------------------
 function generateAnonymousId() {
     return "user_" + Math.random().toString(36).substring(2, 10);
 }
-let anonymousUserId = localStorage.getItem("metamath-anon-id");
-if (!anonymousUserId) {
-    anonymousUserId = generateAnonymousId();
-    localStorage.setItem("metamath-anon-id", anonymousUserId);
-}
+let anonymousUserId = localStorage.getItem("metamath-anon-id") || generateAnonymousId();
+localStorage.setItem("metamath-anon-id", anonymousUserId);
+
+let sessionId = "sess_" + Math.random().toString(36).substring(2, 10);
+
+const lessonId = new URLSearchParams(window.location.search).get("lesson") || "unknown_lesson";
 
 // -------------------------------------------------------
-// Session ID
-// -------------------------------------------------------
-function generateSessionId() {
-    return "sess_" + Math.random().toString(36).substring(2, 10);
-}
-let sessionId = generateSessionId();
-
-// -------------------------------------------------------
-// Lesson ID
-// -------------------------------------------------------
-const params = new URLSearchParams(window.location.search);
-const lessonId = params.get("lesson") || "unknown_lesson";
-
-// -------------------------------------------------------
-// Chat Bubble Renderer (Markdown + MathJax)
+// Chat rendering
 // -------------------------------------------------------
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
 
-    // 1. Convert square-bracket math blocks → display math
-    text = text.replace(/\[\s*([\s\S]+?)\s*\]/g, function(_, expr) {
+    // Square-bracket math → $$...$$
+    text = text.replace(/\[\s*([\s\S]+?)\s*\]/g, (_, expr) => {
         return "$$" + expr.trim() + "$$";
     });
 
     const div = document.createElement("div");
     div.className = "bubble " + className;
 
-    // 2. Markdown + Math protection
+    // Markdown + math
     div.innerHTML = markdownWithMath(text);
 
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
 
-    if (window.MathJax) MathJax.typesetPromise();
+    MathJax.typesetPromise();
 }
 
-
-// -------------------------------------------------------
-// Typing Indicator
-// -------------------------------------------------------
 function showTyping() {
-    const chat = document.getElementById("chatbox");
     const div = document.createElement("div");
     div.id = "typing";
     div.className = "typing";
     div.textContent = "Metamath Tutor is typing...";
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
+    chatbox.appendChild(div);
+    chatbox.scrollTop = chatbox.scrollHeight;
 }
 
 function hideTyping() {
@@ -296,22 +263,15 @@ function hideTyping() {
     if (el) el.remove();
 }
 
-// -------------------------------------------------------
-// Prompt Inserter
-// -------------------------------------------------------
 function insertPrompt(text) {
     const input = document.getElementById("inputbox");
     input.value = text + " ";
     input.focus();
 }
 
-// -------------------------------------------------------
-// Render Adaptive Prompts
-// -------------------------------------------------------
 function renderAdaptivePrompts(list) {
     const box = document.getElementById("adaptive-prompts");
     box.innerHTML = "";
-
     if (!list) return;
 
     list.forEach(p => {
@@ -324,7 +284,7 @@ function renderAdaptivePrompts(list) {
 }
 
 // -------------------------------------------------------
-// Send Message
+// Send message
 // -------------------------------------------------------
 function sendMessage() {
     const input = document.getElementById("inputbox");
@@ -350,8 +310,6 @@ function sendMessage() {
     .then(data => {
         hideTyping();
         addBubble(data.reply, "bot");
-
-        // Render adaptive prompts
         renderAdaptivePrompts(data.suggestions);
     })
     .catch(() => {
