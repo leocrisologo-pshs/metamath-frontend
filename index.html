@@ -182,36 +182,39 @@ marked.setOptions({
 // -------------------------------------------------------
 // Markdown + MathJax safe pipeline
 // -------------------------------------------------------
+
 function markdownWithMath(text) {
     const mathBlocks = [];
 
-    // 1. Extract display math $$...$$
-    text = text.replace(/\$\$(.+?)\$\$/gs, (m) => {
-        mathBlocks.push(m);
-        return `@@MATH${mathBlocks.length - 1}@@`;
+    // 1. Extract MULTILINE display math $$...$$ (non-greedy, dot-all)
+    text = text.replace(/\$\$([\s\S]+?)\$\$/g, (match, inner) => {
+        mathBlocks.push({ type: "block", content: inner });
+        return `@@MATHBLOCK${mathBlocks.length - 1}@@`;
     });
 
     // 2. Extract inline math $...$
-    text = text.replace(/\$(.+?)\$/g, (m) => {
-        mathBlocks.push(m);
-        return `@@MATH${mathBlocks.length - 1}@@`;
+    text = text.replace(/\$([^\$]+?)\$/g, (match, inner) => {
+        mathBlocks.push({ type: "inline", content: inner });
+        return `@@MATHINLINE${mathBlocks.length - 1}@@`;
     });
 
-    // 3. Convert Markdown
+    // 3. Apply Markdown safely
     let html = marked.parse(text);
 
-    // 4. Restore math blocks + unescape TeX
-    html = html.replace(/@@MATH(\d+)@@/g, (_, i) => {
-        let block = mathBlocks[i];
+    // 4. Restore math blocks exactly as-is
+    html = html.replace(/@@MATH(BLOCK|INLINE)(\d+)@@/g, (_, kind, index) => {
+        const block = mathBlocks[index].content;
 
-        // Fix double-escaped backslashes
-        block = block.replace(/\\\\/g, "\\").replace(/\\\$/g, "$");
-
-        return block;
+        if (kind === "BLOCK") {
+            return `$$${block}$$`;
+        } else {
+            return `$${block}$`;
+        }
     });
 
     return html;
 }
+
 
 // -------------------------------------------------------
 // Identifiers
