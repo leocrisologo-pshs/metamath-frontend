@@ -4,16 +4,11 @@
     <meta charset="UTF-8">
     <title>MetaMath Tutor</title>
 
-    <!-- Polyfills -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-
     <!-- MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
     </script>
-
-    <!-- Markdown Renderer (Marked.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
         body {
@@ -53,6 +48,7 @@
             background: #d9ecff;
             margin-left: auto;
             border-bottom-right-radius: 4px;
+            text-align: left;
         }
 
         .bot {
@@ -172,7 +168,7 @@
     <button class="qp" onclick="insertPrompt('The strategy that helped me most was…')">The strategy that helped me most was…</button>
 </div>
 
-<!-- ADAPTIVE SUGGESTED PROMPTS -->
+<!-- ADAPTIVE PROMPTS -->
 <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 500;">Suggested prompts</h3>
 <div id="adaptive-prompts"></div>
 
@@ -183,18 +179,11 @@
 
 <script>
 // -------------------------------------------------------
-// Markdown Configuration
-// -------------------------------------------------------
-marked.setOptions({
-    gfm: true,
-    breaks: true
-});
-
-// -------------------------------------------------------
-// Anonymous User ID
+// --- Anonymous User ID Generation ---
 // -------------------------------------------------------
 function generateAnonymousId() {
-    return "user_" + Math.random().toString(36).substring(2, 10);
+    const random = Math.random().toString(36).substring(2, 10);
+    return "user_" + random;
 }
 
 let anonymousUserId = localStorage.getItem("metamath-anon-id");
@@ -202,31 +191,29 @@ if (!anonymousUserId) {
     anonymousUserId = generateAnonymousId();
     localStorage.setItem("metamath-anon-id", anonymousUserId);
 }
+console.log("Anonymous ID:", anonymousUserId);
 
-// -------------------------------------------------------
-// Session ID
-// -------------------------------------------------------
+// --- New Session ID each visit ---
 function generateSessionId() {
     return "sess_" + Math.random().toString(36).substring(2, 10);
 }
 let sessionId = generateSessionId();
+console.log("Session ID:", sessionId);
 
-// -------------------------------------------------------
-// Lesson ID
-// -------------------------------------------------------
+// --- Get Lesson ID from URL ---
 const params = new URLSearchParams(window.location.search);
 const lessonId = params.get("lesson") || "unknown_lesson";
+console.log("Lesson:", lessonId);
 
 // -------------------------------------------------------
-// Chat Bubble Renderer (Markdown + MathJax)
+// --- Add Chat Bubble ---
 // -------------------------------------------------------
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
+
     const div = document.createElement("div");
     div.className = "bubble " + className;
-
-    // Markdown → HTML
-    div.innerHTML = marked.parse(text);
+    div.innerHTML = text;
 
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
@@ -235,7 +222,7 @@ function addBubble(text, className) {
 }
 
 // -------------------------------------------------------
-// Typing Indicator
+// --- Typing Indicator ---
 // -------------------------------------------------------
 function showTyping() {
     const chat = document.getElementById("chatbox");
@@ -253,7 +240,7 @@ function hideTyping() {
 }
 
 // -------------------------------------------------------
-// Prompt Inserter (static/adaptive)
+// --- Insert Static or Adaptive Prompt ---
 // -------------------------------------------------------
 function insertPrompt(text) {
     const input = document.getElementById("inputbox");
@@ -262,25 +249,25 @@ function insertPrompt(text) {
 }
 
 // -------------------------------------------------------
-// Render Adaptive Prompts
+// --- Render Adaptive Prompts ---
 // -------------------------------------------------------
 function renderAdaptivePrompts(list) {
     const box = document.getElementById("adaptive-prompts");
     box.innerHTML = "";
 
-    if (!list) return;
+    if (!list || list.length === 0) return;
 
-    list.forEach(p => {
+    list.forEach(item => {
         const btn = document.createElement("button");
         btn.className = "ap";
-        btn.textContent = p;
-        btn.onclick = () => insertPrompt(p);
+        btn.textContent = item;
+        btn.onclick = () => insertPrompt(item);
         box.appendChild(btn);
     });
 }
 
 // -------------------------------------------------------
-// Send Message
+// --- Send Message ---
 // -------------------------------------------------------
 function sendMessage() {
     const input = document.getElementById("inputbox");
@@ -302,15 +289,17 @@ function sendMessage() {
             session_id: sessionId
         })
     })
-    .then(r => r.json())
+    .then(response => response.json())
     .then(data => {
         hideTyping();
         addBubble(data.reply, "bot");
 
-        // NEW: adaptive suggestions
-        renderAdaptivePrompts(data.suggestions);
+        // NEW: Show Adaptive Suggestions
+        if (data.suggestions) {
+            renderAdaptivePrompts(data.suggestions);
+        }
     })
-    .catch(() => {
+    .catch(err => {
         hideTyping();
         addBubble("⚠️ Error: Could not reach the server.", "bot");
     });
