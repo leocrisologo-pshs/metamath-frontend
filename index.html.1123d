@@ -84,20 +84,17 @@
         #input-container {
             display: flex;
             gap: 10px;
-            align-items: flex-end;
         }
 
-        /* AUTO-GROW INPUT BOX */
         #inputbox {
             flex: 1;
             min-height: 50px;
-            max-height: 150px; /* Up to ~5 lines */
+            max-height: 150px;
             padding: 10px;
             font-size: 15px;
             border-radius: 10px;
             border: 1px solid #ccc;
-            resize: none;
-            overflow-y: auto;
+            resize: vertical;
         }
 
         button {
@@ -113,18 +110,6 @@
 
         button:hover {
             background: #0050d8;
-        }
-
-        #voiceBtn {
-            font-size: 20px;
-            padding: 10px 12px;
-            background: #ffce73;
-            border-radius: 50%;
-            color: black;
-        }
-
-        #voiceBtn:hover {
-            background: #ffbf4a;
         }
 
         #quick-prompts, #adaptive-prompts {
@@ -179,7 +164,6 @@
 
 <div id="input-container">
     <textarea id="inputbox" placeholder="Type your reflection..."></textarea>
-    <button id="voiceBtn">🎤</button>
     <button onclick="sendMessage()">Send</button>
 </div>
 
@@ -193,7 +177,7 @@ marked.setOptions({
 });
 
 // -------------------------------------------------------
-// Helper: Detect math-like parentheses
+// Helper: Detect math-like parentheses for conversion
 // -------------------------------------------------------
 function isMathParen(expr) {
     return /[A-Za-z0-9π±=+\-*\/^]|\\[a-z]+/.test(expr);
@@ -222,14 +206,17 @@ function markdownWithMath(text) {
         return `@@MATHINLINE${mathBlocks.length - 1}@@`;
     });
 
-    // 3. Markdown parse
+    // 3. Convert Markdown
     let html = marked.parse(text);
 
-    // 4. Restore math blocks
+    // 4. Restore math blocks (fix escapes)
     html = html.replace(/@@MATH(BLOCK|INLINE)(\d+)@@/g,
         (_, kind, idx) => {
-            let block = mathBlocks[idx].content.replace(/\\\\/g, "\\");
-            return kind === "BLOCK" ? `$$${block}$$` : `$${block}$`;
+            let block = mathBlocks[idx].content;
+            block = block.replace(/\\\\/g, "\\");
+            return kind === "BLOCK"
+                ? `$$${block}$$`
+                : `$${block}$`;
         }
     );
 
@@ -237,7 +224,7 @@ function markdownWithMath(text) {
 }
 
 // -------------------------------------------------------
-// Anonymous user/session IDs
+// User/session IDs
 // -------------------------------------------------------
 function generateAnonymousId() {
     return "user_" + Math.random().toString(36).substring(2, 10);
@@ -255,12 +242,14 @@ const lessonId = new URLSearchParams(window.location.search).get("lesson") || "u
 function addBubble(text, className) {
     const chat = document.getElementById("chatbox");
 
+    // Fix bracket-math → display math
     text = text.replace(/\[\s*([\s\S]+?)\s*\]/g, (_, expr) =>
         `$$${expr.trim()}$$`
     );
 
     const div = document.createElement("div");
     div.className = "bubble " + className;
+
     div.innerHTML = markdownWithMath(text);
 
     chat.appendChild(div);
@@ -286,7 +275,6 @@ function hideTyping() {
 function insertPrompt(text) {
     const input = document.getElementById("inputbox");
     input.value = text + " ";
-    input.dispatchEvent(new Event("input"));
     input.focus();
 }
 
@@ -305,11 +293,6 @@ function renderAdaptivePrompts(list) {
 }
 
 // -------------------------------------------------------
-// Store last message for Up Arrow editing
-// -------------------------------------------------------
-let lastUserMessage = "";
-
-// -------------------------------------------------------
 // Send message
 // -------------------------------------------------------
 function sendMessage() {
@@ -317,10 +300,8 @@ function sendMessage() {
     const msg = input.value.trim();
     if (!msg) return;
 
-    lastUserMessage = msg;
     addBubble(msg, "user");
     input.value = "";
-    input.style.height = "50px";
 
     showTyping();
 
@@ -344,59 +325,6 @@ function sendMessage() {
         hideTyping();
         addBubble("⚠️ Error: Could not reach the server.", "bot");
     });
-}
-
-// -------------------------------------------------------
-// AUTO-GROW INPUT BOX
-// -------------------------------------------------------
-const inputEl = document.getElementById("inputbox");
-inputEl.addEventListener("input", () => {
-    inputEl.style.height = "auto";
-    inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + "px";
-});
-
-// -------------------------------------------------------
-// KEYBOARD SHORTCUTS
-// -------------------------------------------------------
-inputEl.addEventListener("keydown", (e) => {
-    if (e.ctrlKey && e.key === "Enter") {
-        sendMessage();
-    }
-
-    if (e.key === "ArrowUp" && inputEl.value.trim() === "") {
-        inputEl.value = lastUserMessage;
-        inputEl.dispatchEvent(new Event("input"));
-    }
-});
-
-// -------------------------------------------------------
-// VOICE-TO-TEXT API
-// -------------------------------------------------------
-const voiceBtn = document.getElementById("voiceBtn");
-
-if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recog = new SpeechRecognition();
-    recog.continuous = false;
-    recog.lang = "en-US";
-
-    voiceBtn.addEventListener("click", () => {
-        voiceBtn.textContent = "🎙";
-        recog.start();
-    });
-
-    recog.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        inputEl.value += transcript;
-        inputEl.dispatchEvent(new Event("input"));
-        voiceBtn.textContent = "🎤";
-    };
-
-    recog.onerror = () => {
-        voiceBtn.textContent = "🎤";
-    };
-} else {
-    voiceBtn.style.display = "none";
 }
 </script>
 
